@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "littoral-naval-warfare-marl"
+version = "0.1.0"
+description = ""
+authors = ["Rich Wood <rftwood@googlemail.com>"]
+packages = []
+# Disable package installation mode:
+package-mode = false
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.12"
+# put your dependencies here, e.g.
+# numpy = "^1.23"
+numpy = "^2.3.1"
+torch = "^2.7.1"
+ipython = "^9.3.0"
+scikit-image = "^0.25.2"
+torchviz = "^0.0.3"
+wandb = "^0.20.1"
+scikit-learn = "^1.7.0"
+streamlit = "^1.50.0"
+matplotlib = "^3.10.7"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
