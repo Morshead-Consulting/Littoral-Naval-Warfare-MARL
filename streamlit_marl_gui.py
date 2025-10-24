@@ -1,3 +1,5 @@
+# poetry run streamlit run streamlit_marl_gui.py
+
 import streamlit as st
 from marl_game import Game
 
@@ -21,8 +23,13 @@ radar_on = st.sidebar.checkbox("Radar On")
 if st.sidebar.button("Take Action"):
     ship = st.session_state.game.blue_ships[selected_ship]
     if ship is not None:
-        action = [int(radar_on), float(engage), ship.position[0] + move_x, ship.position[1] + move_y]
-        ship.take_action(action)
+        human_action = [int(radar_on), float(engage),
+                        ship.position[0] + move_x,
+                        ship.position[1] + move_y]
+        obs, rewards, done, _ = st.session_state.game.human_step(selected_ship, human_action)
+        if done == 0:
+            st.success("Game over!")
+
 
 # Always show the updated game grid
 st.subheader("Game Grid")

@@ -530,6 +530,39 @@ class Game:
         else:
             return red_observations, red_rewards, done, cog_dist # {}
 
+    def human_step(self, blue_ship_index, human_action):
+        """Execute a step where one Blue ship is controlled by the human player."""
+
+        # Prepare action list for all ships
+        num_blue = len(self.blue_ships)
+        num_red = len(self.red_ships)
+        total_ships = num_blue + num_red
+
+        actions = [[0, 0, 0, 0]] * total_ships  # default no-op actions
+
+        # Fill human action for selected Blue ship
+        actions[blue_ship_index] = human_action
+
+        # For other Blue ships: no movement, radar on
+        for i, ship in enumerate(self.blue_ships):
+            if i != blue_ship_index and ship is not None:
+                actions[i] = [1, 0, ship.position[0], ship.position[1]]
+
+        # For Red ships: random movement and radar use
+        for j, ship in enumerate(self.red_ships):
+            if ship is not None:
+                move_x = random.randint(-1, 1)
+                move_y = random.randint(-1, 1)
+                radar_on = random.choice([0, 1])
+                engage = random.choice([0, 1])
+                new_x = ship.position[0] + move_x
+                new_y = ship.position[1] + move_y
+                actions[num_blue + j] = [radar_on, engage, new_x, new_y]
+
+        # Use the existing step() logic
+        observations, rewards, done, cog_dist = self.step(actions)
+        return observations, rewards, done, cog_dist
+
 
     def reset(self, n_blue, n_red, grid=None, blue_ships=None, red_ships=None):
         self.steps_done = 0
@@ -669,24 +702,24 @@ class Game:
         # For land pixels: keep their original color from the resized image
         # (display_image_array already contains them, so no specific change needed for land_mask)
 
-        ax.imshow(display_image_array, origin="upper", extent=[-0.5, 100-0.5, -0.5, 100-0.5])
+        ax.imshow(display_image_array, origin="lower", extent=[-0.5, 100-0.5, -0.5, 100-0.5])
         # --- END MODIFICATION FOR SEA COLOR ---
 
 
         # Plot ship positions
         for ship in self.blue_ships:
             if ship is not None:
-                ship_position = (ship.position[1], 100 - ship.position[0] - 1)
+                ship_position = (ship.position[1], ship.position[0])
                 if ship.ship_type == 'small':
-                    ax.plot(*ship_position, "bo", markersize=4, label="Small Combatant")
+                    ax.plot(*ship_position, "bo", markersize=4, zorder=10, label="Small Combatant")
                 elif ship.ship_type == 'medium':
-                    ax.plot(*ship_position, "bo", markersize=6, label="Medium Combatant")
+                    ax.plot(*ship_position, "bo", markersize=6, zorder=10, label="Medium Combatant")
                 elif ship.ship_type == 'large':
-                    ax.plot(*ship_position, "bo", markersize=8, label="Large Combatant")
+                    ax.plot(*ship_position, "bo", markersize=8, zorder=10, label="Large Combatant")
 
         for ship in self.red_ships:
             if ship is not None:
-                ship_position = (ship.position[1], 100 - ship.position[0] - 1)
+                ship_position = (ship.position[1], ship.position[0])
                 if ship.ship_type == 'small':
                     ax.plot(*ship_position, "ro", markersize=4, label="Small Combatant")
                 elif ship.ship_type == 'medium':
@@ -695,7 +728,7 @@ class Game:
                     ax.plot(*ship_position, "ro", markersize=8, label="Large Combatant")
                 elif ship.ship_type == 'ls':
                     ax.plot(*ship_position, "rs", markersize=6, label="Landing Ship")
-                    landing = (ship.landing_zone[1], 100 - ship.landing_zone[0] - 1)
+                    landing = (ship.landing_zone[1], ship.landing_zone[0])
                     ax.plot(*landing, "r*", markersize=6, label="Landing Spot")
 
         # Plot field of vision
@@ -709,17 +742,17 @@ class Game:
 
                     #radius = min(radius, min(x, y, self.grid_size - 1 - x, self.grid_size - 1 - y))
 
-                    circle = Circle((y, 100-x-1), radius, alpha=0.2, edgecolor=None)
+                    circle = Circle((y, x), radius, alpha=0.2, edgecolor=None)
                     ax.add_patch(circle)
         
         if self.blue_replenishment_points:
             for point in self.blue_replenishment_points:
-                p = (point[1], 100-point[0]-1)
+                p = (point[1], point[0])
                 ax.plot(*p, 'bv', markersize=5, label='Replenishment Point')
                 
         if self.red_replenishment_points:
             for point in self.red_replenishment_points:
-                p = (point[1], 100-point[0]-1)
+                p = p = (point[1], point[0])
                 ax.plot(*p, 'rv', markersize=5, label='Replenishment Point')
 
         # plot ew bearings
@@ -727,25 +760,27 @@ class Game:
             for p in self.blue_ew:
                 x1 = p[0][1]
                 x2 = p[1][1]
-                y1 = 100 - p[0][0] - 1
-                y2 = 100 - p[1][0] - 1
+                y1 = p[0][0]
+                y2 = p[1][0]
                 ax.plot([x1, x2], [y1, y2], 'b-')
+
         
         if self.red_ew:
             for p in self.red_ew:
                 x1 = p[0][1]
                 x2 = p[1][1]
-                y1 = 100 - p[0][0] - 1
-                y2 = 100 - p[1][0] - 1
-                ax.plot([x1, x2], [y1, y2], 'r-')
+                y1 = p[0][0]
+                y2 = p[1][0]
+                ax.plot([x1, x2], [y1, y2], 'b-')
+
 
         if self.engagements:
             for e in self.engagements:
                 launch, target, msl = e
                 x1 = launch[1]
                 x2 = target[1]
-                y1 = 100 - launch[0] - 1
-                y2 = 100 - target[0] - 1
+                y1 = launch[0]
+                y2 = target[0]
                 ax.plot(x2, y2, 'X', color="orange")
                 if msl == 0:
                     ax.plot([x1, x2], [y1, y2], '-', color="yellow")
@@ -769,6 +804,29 @@ class Game:
         ax.set_ylim(0 - 0.5, 100 + 0.5)
 
         # print(np.unique(self.grid))
+
+                # --- Add coordinate ticks and grid for debugging ---
+        tick_interval = 10  # Show labels every 10 grid squares
+        ticks = list(range(0, self.grid_size, tick_interval))
+
+        ax.set_xticks(ticks)
+        ax.set_yticks(ticks)
+
+        ax.set_xticklabels([str(t) for t in ticks])
+        ax.set_yticklabels([str(t) for t in ticks])
+
+        # Light gray gridlines for visibility
+        ax.grid(True, which='both', color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
+
+        # Add axis labels
+        ax.set_xlabel("Y (column index → East)")
+        ax.set_ylabel("X (row index → South)")
+
+        # Optional: draw border around the grid
+        ax.set_xlim(-0.5, self.grid_size - 0.5)
+        ax.set_ylim(-0.5, self.grid_size - 0.5)
+        ax.set_aspect('equal')
+
 
         # Show the plot
         plt.grid(True)

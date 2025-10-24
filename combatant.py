@@ -499,7 +499,13 @@ class Combatant:
                 
     # Action execution function
     def take_action(self, action):
+        """
+        Executes an action.
+        - RL agents provide structured actions (radar_on, engage_level, move_command)
+        - Human players (via GUI) can provide [radar_on, engage, new_x, new_y]
+        """
 
+        # --- Handle radar and engagement inputs ---
         rad_action = action[0]
         if DISCRETE:
             engagement = round(action[1])
@@ -508,48 +514,56 @@ class Combatant:
 
         self.successful_engagements = 0
 
+        # --- Detect manual (GUI) control ---
+        if len(action) == 4 and isinstance(action[2], (int, float)) and isinstance(action[3], (int, float)):
+            new_x, new_y = int(action[2]), int(action[3])
+            # Manual move directly on the grid
+            if self.can_move_to(new_x, new_y) and self.check_path(self.position, (new_x, new_y)):
+                self.position = (new_x, new_y)
+                self.radar_transmission = int(rad_action)
+                engage = bool(engagement)
+                destroyed_targets = 0
+
+                # Optional: handle manual missile fire
+                if engage:
+                    for tgt in self.target_list:
+                        target = self.check_target(tgt, self.side)
+                        if target:
+                            if self.fire_missile(tgt, self.side, salvo=engagement):
+                                destroyed_targets += 1
+
+                return self.get_obs(), True, (engage, destroyed_targets)
+            else:
+                # Invalid move
+                return self.get_obs(), False, (False, 0)
+
+        # --- Normal RL-controlled action path ---
         if not DISCRETE:
             new_position = self.continuous_to_discrete(action[2:])
         else:
             new_position = self.value_to_coordinates(action[2])
 
-        """
-        rrr_dist = 200
-        for rrr in self.replenishment_points:
-            distance = math.sqrt((self.position[0]-rrr[0])**2 + (self.position[1]-rrr[1])**2)
-            if distance < rrr_dist:
-                rrr_dist = distance
-
-        if self.missiles == 0 and rrr_dist < 1 and self.replenishment == False:
-                self.replenishment_timer += 1
-                self.replenishment = True
-        """
         engage = False
-        engagement_threshold = round(engagement*self.missiles)
-
+        engagement_threshold = round(engagement * self.missiles)
         if engagement_threshold > 0:
             engage = True
 
         destroyed_targets = 0
-        
-        if engage:
-            if self.target_list:
-                for tgt in self.target_list:
-                    target = self.check_target(tgt, self.side)
+
+        if engage and self.target_list:
+            for tgt in self.target_list:
+                target = self.check_target(tgt, self.side)
+                if target is not None:
                     if self.side == "blue":
                         if target not in self.environment.neutralized_units["red"]:
-                            destroyed = self.fire_missile(tgt, self.side, salvo=engagement)
-                            if destroyed:
+                            if self.fire_missile(tgt, self.side, salvo=engagement):
                                 destroyed_targets += 1
                     else:
                         if target not in self.environment.neutralized_units["blue"]:
-                            destroyed = self.fire_missile(tgt, self.side, salvo=engagement)
-                            if destroyed:
+                            if self.fire_missile(tgt, self.side, salvo=engagement):
                                 destroyed_targets += 1
 
-        #if self.target_list and self.side == 'blue':
-        #    print(f"Unit on side {self.side} has {len(self.target_list)} targets available at {self.steps_done} timesteps, engagement threshold {engagement_threshold}, engaged {destroyed_targets} targets")
-
+        # Update environment metrics
         if self.side == 'blue':
             self.environment.blue_engagements += destroyed_targets
         else:
@@ -560,9 +574,9 @@ class Combatant:
         if new_position is not False:
             self.move(new_position)
             return self.get_obs(), True, (engage, destroyed_targets)
-        
         else:
             return self.get_obs(), False, (engage, destroyed_targets)
+
                     
 ##############################
 
