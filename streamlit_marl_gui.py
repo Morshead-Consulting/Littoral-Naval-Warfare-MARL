@@ -24,11 +24,7 @@ if st.sidebar.button("Take Action"):
         action = [int(radar_on), float(engage), ship.position[0] + move_x, ship.position[1] + move_y]
         ship.take_action(action)
 
-        # Get figure from the visualize_grid method and display it
-        fig = st.session_state.game.visualize_grid(show=False)
-        st.pyplot(fig)
-
-# Display game grid
+# Always show the updated game grid
 st.subheader("Game Grid")
 fig = st.session_state.game.visualize_grid(show=False)
 st.pyplot(fig)
@@ -42,3 +38,4 @@ for i, ship in enumerate(st.session_state.game.blue_ships):
             f"Missiles={ship.missiles}, "
             f"Radar={'On' if ship.radar_transmission else 'Off'}"
         )
+
